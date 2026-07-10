@@ -1,0 +1,22 @@
+services:
+  litepan:
+    # 方式一：从 GitHub Container Registry 拉取（推荐）
+    # 把 <你的GitHub用户名> 替换成你自己的 GitHub 用户名
+    image: ghcr.io/<你的GitHub用户名>/litepan-pro:latest
+    container_name: litepan-pro
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./data:/app/data
+      - ./log:/app/log
+      - ./strm:/app/strm
+      - ./plugins:/app/plugins
+    environment:
+      TZ: Asia/Shanghai
+      # LITEPAN_WEB_HOST（可选）：默认先试 [::] 双栈失败则回落 0.0.0.0；
+      # 设为 :: 强制双栈失败退出；其余按指定地址监听
+
+    # 方式二：本地构建（如果你把代码 clone 到了当前目录，把 image 行注释掉、打开下面的 build）
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
