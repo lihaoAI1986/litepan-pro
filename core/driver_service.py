@@ -1,7 +1,8 @@
 """驱动获取与下载公共服务。"""
 
-import json
 import asyncio
+import json
+import urllib.parse
 from time import monotonic
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
@@ -343,6 +344,38 @@ async def _build_path_resolution_from_pick(
     )
 
 
+def _name_match_for_walk(candidate: str, actual: str) -> bool:
+    """宽松匹配：115 Open API 在不同接口下返回的 item.name 可能跟 STRM 同步
+    时写入 path_file_cache 的 remote_path 片段字符形态不一致（@、[]、空格
+    等可能 percent-encode 也可能不 encode）。这里做多形式比较。
+    """
+    if not candidate or not actual:
+        return False
+
+    def _variants(s: str) -> List[str]:
+        out = [s]
+        try:
+            decoded = urllib.parse.unquote(s)
+            if decoded and decoded not in out:
+                out.append(decoded)
+        except Exception:
+            pass
+        # 清理可能的多余包裹字符
+        # 去掉首尾的 \\x00 / 反引号 / 单引号 / 双引号 / 空白
+        cleaned = s.replace(chr(0), "").strip().strip(chr(96)).strip(chr(34)).strip(chr(39)).strip()
+        if cleaned and cleaned not in out:
+            out.append(cleaned)
+        return out
+
+    for cand in _variants(candidate):
+        if cand == actual:
+            return True
+    for cand in _variants(actual):
+        if cand == candidate:
+            return True
+    return False
+
+
 async def _walk_path_in_driver(
     driver,
     *,
@@ -379,7 +412,9 @@ async def _walk_path_in_driver(
             return None
         match = None
         for item in children:
-            if getattr(item, "is_dir", False) and item.name == target_name:
+            if not getattr(item, "is_dir", False):
+                continue
+            if _name_match_for_walk(target_name, item.name):
                 match = item
                 break
         if match is None:
@@ -397,7 +432,7 @@ async def _walk_path_in_driver(
     for item in children:
         if getattr(item, "is_dir", False):
             continue
-        if item.name != target_filename:
+        if not _name_match_for_walk(target_filename, item.name):
             continue
         if file_match is None or int(getattr(item, "size", 0) or 0) > int(getattr(file_match, "size", 0) or 0):
             file_match = item
@@ -467,7 +502,9 @@ async def list_sibling_paths_for_precache(
             return []
         match = None
         for item in children:
-            if getattr(item, "is_dir", False) and item.name == segment:
+            if not getattr(item, "is_dir", False):
+                continue
+            if _name_match_for_walk(segment, item.name):
                 match = item
                 break
         if match is None:
