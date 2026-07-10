@@ -8,6 +8,8 @@ on:
 
 env:
   IMAGE_NAME: litepan-pro
+  # Docker 镜像名必须全小写，这里把 GitHub 用户名转为小写
+  IMAGE_OWNER: ${{ lower(github.repository_owner) }}
 
 jobs:
   build:
@@ -47,8 +49,8 @@ jobs:
           file: ./Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/litepan-pro:${{ steps.version.outputs.VERSION }}
-            ghcr.io/${{ github.repository_owner }}/litepan-pro:latest
+            ghcr.io/${{ env.IMAGE_OWNER }}/litepan-pro:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ env.IMAGE_OWNER }}/litepan-pro:latest
           labels: |
             org.opencontainers.image.title=LitePan-Pro
             org.opencontainers.image.description=LitePan with TgtoDrive-style /d/ STRM 302 reverse proxy
